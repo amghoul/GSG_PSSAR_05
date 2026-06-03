@@ -50,7 +50,7 @@ The dataset contains a total of **20,058 records**. Missing values and their rel
 
 #### Decision 2: Retain Extreme Outliers in `turns`
 * **Action:** Preserve the record with the maximum value of `349` turns.
-* **Why:** Although the 75th percentile sits at `79` turns, a 349-turn game is a realistic statistical tail event in high-level or bullet/blitz chess formats where players shuffle pieces to force draws or run down clocks. Since it represents legitimate behavioral data, it must not be pruned.
+* **Why:** Although the 75th percentile sits at `79` turns, a 349-turn game is a realistic statistical tail event in high-level or chess formats where players shuffle pieces to force draws or run down clocks. Since it represents legitimate behavioral data, it must not be pruned.
 
 ---
 
@@ -84,7 +84,7 @@ The dataset contains a total of **215 records**. Missing values and their relati
 
 #### Decision 2: Impute Missing `account_status` Values with an explicit label (`"Unspecified"`)
 * **Action:** Map all 46 missing items to a new categorical string identifier, `"Unspecified"` or `"Active_Default"`.
-* **Why:** Over 21% of users lack a status flag. Dropping these rows would destroy more than a fifth of our profile dataset. Since an unpopulated status field usually implies that the account is standard/active and hasn't triggered an administrative flag (like "Banned" or "Premium"), treating it as its own structural category avoids model skewing.
+* **Why:** Over 21% of users lack a status flag. Dropping these rows would destroy more than a fifth of our profile dataset. 
 
 #### Decision 3: Fill Missing `country` Fields with `"Unknown"` 
 * **Action:** Replace `NaN` values with `"Unknown"`.
