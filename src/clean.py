@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import re
 import gdown
+import matplotlib.pyplot as plt
 
 # The datasets url Google Drive links
 url_chess = 'https://drive.google.com/file/d/1eR3NZtwIC6ECN3vhtrynqmx8okG0twA7/view'
@@ -11,6 +12,7 @@ url_play = 'https://drive.google.com/file/d/1wCSAkGagMzWiToedLC3ZGo_lGf_laF-k/vi
 name_ds_chess="chess_games"
 name_ds_play="play_data"
 num_spaces = len("Q00 answer -->   ")
+csv_name = 'cleaned_chess_data.csv'
 
 def load_data(url: str, local_path: str) -> pd.DataFrame:
     """Load from Google Drive URL using gdown to bypass warning screens, 
@@ -52,10 +54,10 @@ def clean_chess(df: pd.DataFrame) -> pd.DataFrame:
     assert df['rating_diff'].notna().all(), "Data Quality Error: The rating_diff column contains missing values!"
     dup_count = df.duplicated().sum()
     assert dup_count == 0, f"Data Quality Error: Found {dup_count} completely duplicate rows in the dataset!"
+
     return df
 
-###### Stage1 Questions
-def stage1_questions(df: pd.DataFrame, df2: pd.DataFrame):
+def stage1_questions(df: pd.DataFrame, df2: pd.DataFrame)-> None:
     # Stage1 questions from Q1 to Q6
     # Q1 --> The number of recordes in chess_games is: 20058
     #    -->  The number of recordes in play_data is: 215
@@ -90,8 +92,7 @@ def stage1_questions(df: pd.DataFrame, df2: pd.DataFrame):
     print(f"Q6 answer --> The minimum number of turns in any game in {name_ds_chess} is: {min_num_turns}")
     print(f"            And this suspicious because you cannot win with only one turn")
 
-############# Stage2 questions
-def stage2_questions(df: pd.DataFrame):
+def stage2_questions(df: pd.DataFrame)-> None:
     # Stage2 questions from Q7 to Q9
     # Q7 --> % of games did the higher-rated player win is: 62.21%
     # 1. Determine who the higher-rated player is
@@ -118,8 +119,7 @@ def stage2_questions(df: pd.DataFrame):
     num_unique_opening_family = df['opening_family'].nunique()
     print(f"Q9 --> The number of unique opening families is: {num_unique_opening_family}")
 
-############ Stage 3 
-def stage3_questions(df: pd.DataFrame):
+def stage3_questions(df: pd.DataFrame)-> None:
     # Stage3 questions from Q10 to Q15
     # Q10 answer--> The win rate for each winner category is: 
     #                  White is: 0.50%
@@ -129,7 +129,7 @@ def stage3_questions(df: pd.DataFrame):
     print("Q10 answer--> The win rate for each winner category is: ")
     for i in range(num_winner_cat):
         raw = df['winner'].value_counts(normalize=True)
-        print(f"{' ' * num_spaces} {raw.index[i]} is: {raw.iloc[i]:.2f}%")
+        print(f"{' ' * num_spaces} {raw.index[i]} is: {raw.iloc[i] * 100:.2f}%")
 
     # Q11 answer  --> The most common way games end (The victory_status) is: 
     #                 Resign is: 55.57%
@@ -172,7 +172,7 @@ def stage3_questions(df: pd.DataFrame):
     for cat, perc in percentages.items():
         print(f"{' ' * num_spaces} {cat} {perc:.2f}%")
 
-def categorize_length(turns):
+def categorize_length(turns: int)-> str:
         if turns < 15:
             return 'Short'
         elif turns <= 80:
@@ -180,15 +180,113 @@ def categorize_length(turns):
         else:
             return 'Long'
 
+def save_df_to_csv(df: pd.DataFrame, path: str)-> None:
+    df.to_csv(path, index=False)
+    print(f"Dataframe successfully saved to: {path}")
+
+def merge_with_play(df: pd.DataFrame, df_play: pd.DataFrame)-> pd.DataFrame:
+    """
+    Merge chess games with player registration data on white player ID.
+
+    Filters df to specific columns, renames df_play username, and performs 
+    a left join.
+    """
+    merged = pd.merge(
+        df[['game_id', 'white_id', 'white_rating', 'winner', 'turns', 'victory_status']],
+        df_play.rename(columns={'username': 'white_id'}), 
+        on='white_id', 
+        how='left'
+    )
+    return merged 
+
+def merge_clean(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardize country names and report missing data and data inconsistencies.
+
+    Maps inconsistent country strings to standardized names, converts them to 
+    title case, and prints the answers for Q16, Q17, Q18, Q19 and draw three plots: bar, scatter, and box plots.
+    """
+    raw_unique_count = df['country'].dropna().nunique()
+
+    country_map = {
+        'RUS':'Russia','US':'United States', 'USA':'United States', 
+        'UA':'Ukraine','GB':'United Kingdom', 'Uk':'United Kingdom' ,'BRA': 'Brazil',
+        'FR': 'France', 'ES': 'Spain', 'PL': 'Poland', 'DE': 'Germany', 
+        'Deutschland': 'Germany', 'IN': 'India', 'russian federation': 'Russia'
+    }
+    df['country'] = df['country'].map(country_map).fillna(df['country'])
+    df['country'] = df['country'].str.title()
+    
+    clean_unique_count = df['country'].dropna().nunique()
+
+    num_white_palyer_no_registry = df[df['rating_registry'].isna()]['white_id'].nunique()
+    print(f"Q16 answer --> The number of white players in the chess data have no registry entry is: "
+          f"{num_white_palyer_no_registry}")
+
+    total_inconsistencies = raw_unique_count - clean_unique_count
+    print(f"Q17 answer --> Total country names with inconsistencies: {total_inconsistencies}")
+    print(f"{' ' * 18} The cleaned country names are: {df['country'].dropna().unique()}")
+    plot(df)
+    
+    return df
+
+def plot(df: pd.DataFrame)-> None:
+    """
+    Generate and save exploratory plots (bar, scatter, and boxplots) for chess data.
+    
+    Saves 'wins_by_color.png', 'white_rating_by_turns_scatter.png', and 
+    'turns_by_victory_status.png' to the output directory and prints Q18/Q19 answers.
+    """
+    # Q18 answer --> lot successfully saved to output/wins_by_color.png
+    ax = df['winner'].value_counts().plot(
+        kind='bar', title='Wins by Color',
+        color=['#C9A84C','#1B3A2D','#7A8C7E'], rot=0)
+    for container in ax.containers:
+        ax.bar_label(container, padding=3)
+
+    ax.margins(y=0.1)
+    plt_bar_name = 'wins_by_color.png'
+    plt_scatter_name = 'white_rating_by_turns_scatter.png'
+    plt_box_name = 'turns_by_victory_status.png'
+    plt.savefig('output/plots/' + plt_bar_name, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Q18 answer --> Plot successfully saved to output/plots/{plt_bar_name}!")
+
+    # Q19 answer --> Higher-rated games not necessarily longer
+    df.plot(kind='scatter',
+                    x='white_rating', y='turns',
+                    alpha=0.3, title='Rating vs Game Length',
+                    color='#3D6B4F')
+    plt.savefig('output/plots/' + plt_scatter_name, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Q19 answer --> We noticed that: Higher-rated games not necessarily longer \n"
+        f"{' ' * num_spaces} Plot successfully saved to output/plots/{plt_scatter_name}!")
+
+
+    df.boxplot(column='turns', by='victory_status',figsize=(8,5))
+    plt.savefig('output/plots/' + plt_box_name, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"The scatter plot successfully saved to output/plots/{plt_box_name}!")
+
 # This will download the raw files directly to your machine
 df_chess = load_data(url_chess, '../data/raw/' + name_ds_chess + '.csv')
 df_play = load_data(url_play, '../data/raw/'+ name_ds_play + '.csv')
 
+######### Stage1
 stage1_questions(df_chess,df_play )
 
-#df = clean_chess(df_chess)
+######### Stage2
 df = df_chess.pipe(clean_chess)
+save_df_to_csv(df, 'data/processed/' + csv_name)
 stage2_questions(df)
 
+######## Stage3
 stage3_questions(df)
 
+######### Stage4
+df_final = (
+    df_chess
+    .pipe(clean_chess)
+    .pipe(merge_with_play, df_play=df_play)
+    .pipe(merge_clean)
+)
