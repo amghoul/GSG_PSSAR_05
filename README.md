@@ -46,7 +46,7 @@ The dataset contains a total of **20,058 records**. Missing values and their rel
 
 #### Decision 1: Retain Null Values in `opening_response` and `opening_variation`
 * **Action:** Keep the nulls exactly as they are. Do **not** drop rows, and do **not** impute using standard string replacements like "Unknown".
-* **Why:** The missingness here is completely structural (**Missing Not At Random - MNAR**). In chess opening theory, an *opening response* only exists if the second player makes a specific counter-move that creates a named sub-classification (e.g., a defense variant). Similarly, an *opening variation* only occurs if the line extends deeply enough to branch out. Forcing a string filler here would corrupt statistical models trying to evaluate true opening lineages.
+* **Why:** An *opening response* only exists if the second player makes a specific counter-move that creates a named sub-classification. Similarly, an *opening variation* only occurs if the line extends deeply enough to branch out. 
 
 #### Decision 2: Retain Extreme Outliers in `turns`
 * **Action:** Preserve the record with the maximum value of `349` turns.
